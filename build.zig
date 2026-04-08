@@ -1068,42 +1068,6 @@ pub fn addDvuiModule(
         }
     }
 
-    const tree_sitter = opts.tree_sitter orelse @panic("tree_sitter was null");
-    if (tree_sitter) {
-        const tree_sitter_dep = b.lazyDependency("tree_sitter", .{
-            .target = target,
-            .optimize = optimize,
-        });
-        if (tree_sitter_dep) |tsd| {
-            dvui_mod.linkLibrary(tsd.artifact("tree-sitter"));
-        }
-
-        const tree_sitter_json_dep = b.lazyDependency("tree_sitter_json", .{
-            .target = target,
-            .optimize = optimize,
-        });
-        if (tree_sitter_json_dep) |tsc| {
-            dvui_mod.addIncludePath(tsc.path("src"));
-            dvui_mod.addCSourceFiles(.{
-                .root = tsc.path(""),
-                .files = &.{"src/parser.c"},
-                .flags = &.{"-std=c11"},
-            });
-        }
-        const tree_sitter_zig_dep = b.lazyDependency("tree_sitter_zig", .{
-            .target = target,
-            .optimize = optimize,
-        });
-        if (tree_sitter_zig_dep) |tsc| {
-            dvui_mod.addIncludePath(tsc.path("src"));
-            dvui_mod.addCSourceFiles(.{
-                .root = tsc.path(""),
-                .files = &.{"src/parser.c"},
-                .flags = &.{"-std=c11"},
-            });
-        }
-    }
-
     return dvui_mod;
 }
 
