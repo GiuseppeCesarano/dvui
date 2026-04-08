@@ -239,7 +239,7 @@ const FrameUploads = struct {
     index: UploadBuffer(dvui.Vertex.Index),
 
     // Draw calls tracking
-    draws: std.ArrayList(RectDraw) = .{},
+    draws: std.ArrayList(RectDraw) = .empty,
     allocator: std.mem.Allocator,
 
     // Copy pass for uploading data each frame
@@ -386,6 +386,7 @@ cursor_last: dvui.enums.Cursor = .arrow,
 cursor_backing: [@typeInfo(dvui.enums.Cursor).@"enum".fields.len]?*c.SDL_Cursor = [_]?*c.SDL_Cursor{null} ** @typeInfo(dvui.enums.Cursor).@"enum".fields.len,
 cursor_backing_tried: [@typeInfo(dvui.enums.Cursor).@"enum".fields.len]bool = [_]bool{false} ** @typeInfo(dvui.enums.Cursor).@"enum".fields.len,
 arena: std.mem.Allocator = undefined,
+io: std.Io,
 textures_arena: std.heap.ArenaAllocator = undefined,
 
 const max_texture_size = 2048 * 2048 * 4;
@@ -424,6 +425,7 @@ pub const TexTransferBuf = struct {
 pub const InitOptions = struct {
     /// The allocator used for temporary allocations used during init()
     allocator: std.mem.Allocator,
+    io: std.Io,
     /// The initial size of the application window
     size: dvui.Size,
     /// Set the minimum size of the window
@@ -485,7 +487,7 @@ pub fn initWindow(options: InitOptions) !SDLBackend {
         return error.BackendError;
     }
 
-    var back = init(window, device, options.allocator);
+    var back = init(window, device, options.allocator, options.io);
     back.ak_should_initialized = show_window_in_begin;
     back.we_own_window = true;
 
@@ -539,11 +541,12 @@ pub fn initWindow(options: InitOptions) !SDLBackend {
     return back;
 }
 
-pub fn init(window: *c.SDL_Window, device: *c.SDL_GPUDevice, allocator: std.mem.Allocator) SDLBackend {
+pub fn init(window: *c.SDL_Window, device: *c.SDL_GPUDevice, allocator: std.mem.Allocator, io: std.Io) SDLBackend {
     var back = SDLBackend{
         .window = window,
         .device = device,
         .textures_arena = std.heap.ArenaAllocator.init(allocator),
+        .io = io,
     };
     back.detectShaderFormat();
     back.createPipeline() catch |err| {
@@ -1026,12 +1029,12 @@ pub fn backend(self: *SDLBackend) dvui.Backend {
     return dvui.Backend.init(self);
 }
 
-pub fn nanoTime(_: *SDLBackend) i128 {
-    return std.time.nanoTimestamp();
+pub fn nanoTime(self: *SDLBackend) i128 {
+    return std.Io.Timestamp.now(self.io, .real).toNanoseconds();
 }
 
-pub fn sleep(_: *SDLBackend, ns: u64) void {
-    std.Thread.sleep(ns);
+pub fn sleep(self: *SDLBackend, ns: u64) void {
+    std.Io.sleep(self.io, .fromNanoseconds(ns), .real) catch {};
 }
 
 pub fn clipboardText(self: *SDLBackend) ![]const u8 {
